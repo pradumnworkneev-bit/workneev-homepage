@@ -1,0 +1,24 @@
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #f7f7f9; -webkit-font-smoothing: antialiased; }
+* { box-sizing: border-box; }
+a { color: #4f46e5; text-decoration: none; }
+a:hover { color: #3d35c9; }
+summary::-webkit-details-marker { display: none; }
+summary { list-style: none; cursor: pointer; }
+input, textarea, select, button { font: inherit; color: inherit; }
+input::placeholder, textarea::placeholder { color: #8794ae; }
+@keyframes wkFadeUp { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes wkFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes wkGrowX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes wkGrowY { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes wkDraw { from { stroke-dashoffset: var(--dash, 1200); } to { stroke-dashoffset: 0; } }
+@keyframes wkRise { from { opacity: 0; transform: translateY(40px); } 18% { opacity: 1; transform: none; } 100% { opacity: 1; transform: none; } }
+@keyframes wkPhase { 0% { opacity: 0; } 14% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; } }
+@keyframes wkHold { 0% { opacity: 0; } 12% { opacity: 1; } 100% { opacity: 1; } }
+@keyframes wkSweep { from { transform: translateX(0); } to { transform: translateX(var(--sweep, 100%)); } }
+@keyframes wkDolly { from { transform: translateX(6%); } to { transform: translateX(-6%); } }
+@keyframes wkDrift { from { transform: translateY(0); } to { transform: translateY(-70px); } }
+@keyframes wkTurn { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes wkShrink { from { transform: scale(1); } to { transform: scale(0.94); } }
+@keyframes wkTick { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+
