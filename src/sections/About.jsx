@@ -21,7 +21,7 @@ export default function About() {
           </div>
           <div>
             <div style={{ marginTop: "0", borderTop: "1px solid #e5e5ea", paddingTop: "20px", font: "700 clamp(19px,1.6vw,24px)/1.2 'Plus Jakarta Sans',sans-serif", color: "#101014" }}>Pradumn Yadav</div>
-            <div style={{ marginTop: "6px", font: "500 11px/1.4 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#4f46e5" }}>CO-FOUNDER &amp; MANAGING DIRECTOR</div>
+            <div style={{ marginTop: "6px", font: "500 11px/1.4 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#4f46e5" }}>CO-FOUNDER</div>
           </div>
           <div style={{ background: "#ececf1", border: "1px solid #e5e5ea", padding: "clamp(22px,2.4vw,34px)", display: "flex", flexDirection: "column" }}>
             <div style={{ font: "700 clamp(19px,1.6vw,24px)/1.25 'Plus Jakarta Sans',sans-serif", color: "#101014" }}>The Workneev Expert Council</div>
