@@ -1,0 +1,10 @@
+{
+  // Static-assets-only Worker: there is no server code, so wrangler just
+  // uploads ./dist. Without this file `wrangler deploy` has no config to read
+  // and fails while probing vite.config.js.
+  "name": "workneev-homepage",
+  "compatibility_date": "2025-09-01",
+  "assets": {
+    "directory": "./dist"
+  }
+}
