@@ -6,3 +6,6 @@ tools/visual-check-output
 Workneev Homepage.dc.html
 support.js
 .thumbnail
+
+# design sources: briefs, the prototype and the raw art (assets used by the site live in src/assets)
+design/
