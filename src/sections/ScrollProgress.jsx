@@ -1,7 +1,21 @@
+import { useEffect, useRef } from 'react';
+import { subscribeScroll } from '../lib/scroll.js';
+
+/** The 3px reading-progress bar pinned to the top of the window. */
 export default function ScrollProgress() {
-  return (
-    <div style={{ position: "fixed", top: "0", left: "0", right: "0", height: "2px", zIndex: "60", background: "transparent" }}>
-      <div style={{ height: "100%", background: "#4f46e5", transformOrigin: "0 50%", animation: "wkGrowX linear", animationTimeline: "scroll(root block)" }} />
-    </div>
-  );
+  const ref = useRef(null);
+
+  useEffect(() => {
+    let max = 1;
+    return subscribeScroll({
+      measure() {
+        max = document.documentElement.scrollHeight - window.innerHeight;
+      },
+      frame(y) {
+        if (ref.current) ref.current.style.transform = `scaleX(${max > 0 ? y / max : 0})`;
+      },
+    });
+  }, []);
+
+  return <div className="progress" ref={ref} aria-hidden="true" />;
 }
