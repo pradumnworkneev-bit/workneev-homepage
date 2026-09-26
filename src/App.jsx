@@ -25,10 +25,22 @@ import Faq from './sections/Faq.jsx';
 import Contact from './sections/Contact.jsx';
 import Dock from './sections/Dock.jsx';
 
-/** A run of sections that share a theme. Light zones blend into the dark page. */
+/**
+ * A run of sections that share a theme. A light zone paints the pearl
+ * background as plain layers, with the page's base colour laid back over it
+ * at each end so the join blends rather than drawing a line.
+ */
 function Zone({ theme, children }) {
   return (
     <div className={`zone theme-${theme}`} data-zone={theme}>
+      {theme === 'light' && (
+        <>
+          <i className="zone-layer zone-bg" aria-hidden="true" />
+          <i className="zone-layer zone-streak" aria-hidden="true" />
+          <i className="zone-layer zone-fade t" aria-hidden="true" />
+          <i className="zone-layer zone-fade b" aria-hidden="true" />
+        </>
+      )}
       {children}
     </div>
   );

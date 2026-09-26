@@ -35,8 +35,9 @@ export function startLenis() {
     // lerp rather than duration: a hard flick then settles at a fixed rate
     // instead of restarting a 1.15s tween on every wheel event
     lenis = new Lenis({
-      lerp: 0.1,
+      lerp: 0.12,
       smoothWheel: true,
+      syncTouch: false,
       wheelMultiplier: 0.9,
       touchMultiplier: 1.4,
     });

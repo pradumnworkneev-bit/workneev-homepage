@@ -8,9 +8,9 @@ import { invalidateLayout, subscribeScroll } from '../lib/scroll.js';
  * The tube is an SVG path in document coordinates, rebuilt on resize: it runs
  * down one side of the page and crosses to the other inside each `.xgap`
  * band, so it never passes over content. It is stroked twice — once dark,
- * once light — and the light set is masked to the vertical bands of the
- * light-themed zones, with the mask feathered over the same 80px the section
- * backgrounds blend across.
+ * once light — and each stroke's paint is a vertical gradient that fades one
+ * theme into the other over the same 80px the section backgrounds blend
+ * across.
  *
  * The ball is docked in the hero (where `window.WK3D` owns it), hands off to
  * the tube on the first scroll, and hands back when you return to the top.
@@ -37,6 +37,8 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
     let fills = [];
     let drawn = [];
     let FILLS = []; // the trail, chopped into short pieces
+    let built = ''; // what the current SVG was built for, so we can reuse it
+    let defsMarkup = () => '';
     let curLen = 0;
     let rolled = 0;
 
@@ -85,26 +87,88 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
     }
 
     /**
-     * Stroke set for one theme, in document coordinates, in two parts: the
-     * body (under the trail) and the gloss (over it). The trail itself is
-     * drawn between them, outside both masks, so animating it never forces
-     * a masked group to re-rasterise.
+     * The two stroke sets, and the vertical gradients that fade between them.
+     *
+     * This used to be two SVG masks. A mask carries its own raster surface the
+     * size of the masked content — document-tall here — and Chrome repainted
+     * it as the page scrolled, which cost more than everything else on the
+     * page put together. The same crossfade is now baked into each stroke's
+     * paint: one gradient per stroke, running the height of the document,
+     * opaque where that theme owns the tube and ramping to nothing over the
+     * same 80px the section backgrounds blend across.
      */
-    function strokes(d, theme, part) {
+    function strokeSet(theme) {
       const dark = theme === 'dark';
-      const cap = 'stroke-linecap="round" stroke-linejoin="round"';
-      if (part === 'gloss') {
-        return (
-          `<path d="${d}" fill="none" stroke="${dark ? 'rgba(255,255,255,.07)' : 'rgba(150,115,235,.14)'}" stroke-width="${T * 0.42}" ${cap}/>` +
-          `<path d="${d}" fill="none" stroke="${dark ? 'rgba(255,255,255,.28)' : 'rgba(255,255,255,.95)'}" stroke-width="1.1" ${cap}/>`
-        );
+      return [
+        [dark ? '#8c64ff' : '#7850f0', dark ? 0.07 : 0.1, T + 18],
+        [dark ? '#000000' : '#50328c', dark ? 0.45 : 0.1, T + 6],
+        [dark ? '#ffffff' : '#5a2ea6', dark ? 0.26 : 0.25, T],
+        [dark ? '#100d18' : '#ffffff', dark ? 0.9 : 0.7, T - 3],
+        [dark ? '#ffffff' : '#9673eb', dark ? 0.07 : 0.14, T * 0.42],
+        ['#ffffff', dark ? 0.28 : 0.95, 1.1],
+      ];
+    }
+
+    /**
+     * One gradient per stroke, running the height of the document: the dark
+     * theme's colour outside the light zones, the light theme's inside, and a
+     * crossfade over the same 80px the section backgrounds blend across.
+     *
+     * Each stroke used to be drawn twice, once per theme, each set clipped by
+     * a document-tall SVG mask. The masks were the most expensive thing on the
+     * page to rasterise while scrolling, and drawing every stroke twice meant
+     * blending 25,000px of translucent tube twice over. One pass, no masks.
+     */
+    function gradients(zones, docH) {
+      const dark = strokeSet('dark');
+      const light = strokeSet('light');
+      return dark
+        .map(([dc, da], i) => {
+          const [lc, la] = light[i];
+          const at = (y) => Math.min(1, Math.max(0, y / docH)).toFixed(5);
+          const stop = (off, c, a) => `<stop offset="${off}" stop-color="${c}" stop-opacity="${a}"/>`;
+          let body = stop('0', dc, da);
+          zones.forEach((z) => {
+            body +=
+              stop(at(z.top), dc, da) +
+              stop(at(z.top + JOIN), lc, la) +
+              stop(at(z.bot - JOIN), lc, la) +
+              stop(at(z.bot), dc, da);
+          });
+          return (
+            `<linearGradient id="tg-${i}" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="0" y2="${docH}">` +
+            body +
+            stop('1', dc, da) +
+            `</linearGradient>`
+          );
+        })
+        .join('');
+    }
+
+    /**
+     * The tube: six strokes, under the trail and over it, each cut into
+     * chunks a couple of screens long.
+     *
+     * A single path the height of the document made every newly exposed tile
+     * clip against 25,000px of geometry, and made any transform on the group
+     * re-process all of it. Short static paths cost the rasteriser almost
+     * nothing, and the chunk seams are invisible: the pieces abut exactly and
+     * the caps are butt.
+     */
+    const TUBE_CHUNK = 4; // trail pieces per tube chunk, ~2400px
+    function strokes(part) {
+      const set = strokeSet('dark');
+      const range = part === 'gloss' ? [4, 6] : [0, 4];
+      let out = '';
+      for (let c = 0; c < FILLS.length; c += TUBE_CHUNK) {
+        const d = FILLS.slice(c, c + TUBE_CHUNK).map((f) => f.d).join('');
+        for (let i = range[0]; i < range[1]; i++) {
+          out +=
+            `<path class="rail-stroke" d="${d}" fill="none" stroke="url(#tg-${i})" ` +
+            `stroke-width="${set[i][2]}" stroke-linecap="butt" stroke-linejoin="round"/>`;
+        }
       }
-      return (
-        `<path d="${d}" fill="none" stroke="${dark ? 'rgba(140,100,255,.07)' : 'rgba(120,80,240,.10)'}" stroke-width="${T + 18}" ${cap}/>` +
-        `<path d="${d}" fill="none" stroke="${dark ? 'rgba(0,0,0,.45)' : 'rgba(80,50,140,.10)'}" stroke-width="${T + 6}" ${cap}/>` +
-        `<path d="${d}" fill="none" stroke="${dark ? 'rgba(255,255,255,.26)' : 'rgba(90,46,166,.25)'}" stroke-width="${T}" ${cap}/>` +
-        `<path d="${d}" fill="none" stroke="${dark ? '#100d18' : 'rgba(255,255,255,.7)'}" stroke-opacity="${dark ? '.9' : '1'}" stroke-width="${T - 3}" ${cap}/>`
-      );
+      return out;
     }
 
     /**
@@ -195,6 +259,7 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
         const lenAtTop = L + (g.top - y);
         line(x, g.c - r);
         SEG.push({ t: 'a1', cx: x + dir * r, cy: g.c - r, r, dir, L0: L, len: (Math.PI * r) / 2,
+          sx: x, sy: y, acmd: `A${r} ${r} 0 0 ${dir < 0 ? 1 : 0} ${x + dir * r} ${g.c}`,
           d: `M${x} ${y} A${r} ${r} 0 0 ${dir < 0 ? 1 : 0} ${x + dir * r} ${g.c}` });
         L += (Math.PI * r) / 2;
         d += ` A${r} ${r} 0 0 ${dir < 0 ? 1 : 0} ${x + dir * r} ${g.c}`;
@@ -202,6 +267,7 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
         y = g.c;
         line(x1 - dir * r, g.c);
         SEG.push({ t: 'a2', cx: x1 - dir * r, cy: g.c + r, r, dir, L0: L, len: (Math.PI * r) / 2,
+          sx: x, sy: y, acmd: `A${r} ${r} 0 0 ${dir < 0 ? 0 : 1} ${x1} ${g.c + r}`,
           d: `M${x} ${y} A${r} ${r} 0 0 ${dir < 0 ? 0 : 1} ${x1} ${g.c + r}` });
         L += (Math.PI * r) / 2;
         d += ` A${r} ${r} 0 0 ${dir < 0 ? 0 : 1} ${x1} ${g.c + r}`;
@@ -219,6 +285,10 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
       // positioned layer measured against the document feeds its own height back in
       const foot = document.querySelector('.footer') || contact;
       const docH = Math.ceil(Math.max(yEnd + 100, foot.getBoundingClientRect().bottom + sy));
+      // The SVG is the size of the window, not the document: a 25,000px canvas
+      // is far past what the compositor will promote, and every pixel of it
+      // was being rasterised through a mask as it scrolled into view. The tube
+      // is still drawn in document coordinates; a group slides it into place.
       rsvg.setAttribute('width', vw);
       rsvg.setAttribute('height', docH);
       rsvg.setAttribute('viewBox', `0 0 ${vw} ${docH}`);
@@ -229,53 +299,56 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
         const r = z.getBoundingClientRect();
         return { top: r.top + sy, bot: r.bottom + sy };
       });
-      const band = (z, i, colour, name) => {
-        const h = Math.max(1, z.bot - z.top);
-        const f = Math.min(0.49, JOIN / h);
-        return (
-          `<linearGradient id="${name}${i}" gradientUnits="userSpaceOnUse" x1="0" y1="${z.top}" x2="0" y2="${z.bot}">` +
-          `<stop offset="0" stop-color="${colour}" stop-opacity="0"/>` +
-          `<stop offset="${f.toFixed(4)}" stop-color="${colour}" stop-opacity="1"/>` +
-          `<stop offset="${(1 - f).toFixed(4)}" stop-color="${colour}" stop-opacity="1"/>` +
-          `<stop offset="1" stop-color="${colour}" stop-opacity="0"/>` +
-          `</linearGradient>`
-        );
-      };
-      const rects = (name) =>
-        lightZones
-          .map(
-            (z, i) =>
-              `<rect x="0" y="${z.top}" width="${vw}" height="${Math.max(0, z.bot - z.top)}" fill="url(#${name}${i})"/>`,
-          )
-          .join('');
-      const maskGrads =
-        lightZones.map((z, i) => band(z, i, '#fff', 'tubeBand')).join('') +
-        lightZones.map((z, i) => band(z, i, '#000', 'tubeBandInv')).join('');
-      const maskRects = rects('tubeBand');
-      // the dark set is cut away exactly where the light set fades in
-      const maskRectsDark = `<rect x="0" y="0" width="${vw}" height="${docH}" fill="#fff"/>${rects('tubeBandInv')}`;
+      defsMarkup = () =>
+        gradients(lightZones, docH) +
+        '<linearGradient id="chromeG" x1="0" x2="1">' +
+        '<stop offset="0" stop-color="#6f6690"/><stop offset=".35" stop-color="#f3effa"/>' +
+        '<stop offset=".6" stop-color="#8e86ad"/><stop offset="1" stop-color="#d8ccff"/></linearGradient>';
 
       buildFills();
+      const sig = `${vw}|${T}|${FILLS.length}`;
+      if (sig === built && rsvg.querySelector('.rail-tube')) {
+        rsvg.querySelector('defs').innerHTML = defsMarkup();
+        rsvg.querySelector('.rail-tube').innerHTML = strokes('body');
+        rsvg.querySelector('.rail-gloss').innerHTML = strokes('gloss');
+        FILLS.forEach((f, i) => {
+          const el = fills[i];
+          if (!el) return;
+          el.setAttribute('d', f.d);
+          el.setAttribute('stroke-dasharray', f.len.toFixed(2));
+        });
+        drawn = FILLS.map(() => -1);
+        const capEl = rsvg.querySelector('.rail-cap');
+        if (capEl) capEl.setAttribute('d', `M${xR - T / 2 - 4} ${y0} L${xR + T / 2 + 4} ${y0}`);
+        const endEl = rsvg.querySelector('.rail-end');
+        if (endEl) {
+          endEl.setAttribute('cx', x);
+          endEl.setAttribute('cy', yEnd);
+        }
+        placeNodes();
+        return;
+      }
+      built = sig;
       rsvg.innerHTML =
-        `<defs>${maskGrads}` +
-        `<linearGradient id="chromeG" x1="0" x2="1"><stop offset="0" stop-color="#6f6690"/><stop offset=".35" stop-color="#f3effa"/><stop offset=".6" stop-color="#8e86ad"/><stop offset="1" stop-color="#d8ccff"/></linearGradient>` +
-        `<mask id="tubeLightMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${vw}" height="${docH}">${maskRects}</mask>` +
-        `<mask id="tubeDarkMask" maskUnits="userSpaceOnUse" x="0" y="0" width="${vw}" height="${docH}">${maskRectsDark}</mask>` +
-        `</defs>` +
-        `<g mask="url(#tubeDarkMask)">${strokes(d, 'dark', 'body')}</g>` +
-        `<g mask="url(#tubeLightMask)">${strokes(d, 'light', 'body')}</g>` +
+        `<defs>${defsMarkup()}</defs>` +
+
+        `<g class="rail-tube">${strokes('body')}</g>` +
         `<g>${fillPaths()}</g>` +
-        `<g mask="url(#tubeDarkMask)">${strokes(d, 'dark', 'gloss')}</g>` +
-        `<g mask="url(#tubeLightMask)">${strokes(d, 'light', 'gloss')}</g>` +
-        `<path d="M${xR - T / 2 - 4} ${y0} L${xR + T / 2 + 4} ${y0}" stroke="url(#chromeG)" stroke-width="7" stroke-linecap="round"/>` +
-        `<circle cx="${x}" cy="${yEnd}" r="${T * 0.75}" fill="rgba(150,110,255,.22)" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>`;
+        `<g class="rail-gloss">${strokes('gloss')}</g>` +
+        `<path class="rail-cap" d="M${xR - T / 2 - 4} ${y0} L${xR + T / 2 + 4} ${y0}" stroke="url(#chromeG)" stroke-width="7" stroke-linecap="round"/>` +
+        `<circle class="rail-end" cx="${x}" cy="${yEnd}" r="${T * 0.75}" fill="rgba(150,110,255,.22)" stroke="rgba(255,255,255,.35)" stroke-width="1.5"/>` +
+        '';
       fills = FILLS.map(() => null);
       rsvg.querySelectorAll('.rail-fill').forEach((f) => {
         fills[+f.dataset.seg] = f;
       });
       drawn = FILLS.map(() => -1);
 
+
+      placeNodes();
+
       // section markers, in the theme of the zone they sit in
+      function placeNodes() {
       rnodes.innerHTML = '';
       nodes = [];
       const secs = [...document.querySelectorAll('main section[id]')].filter((s) => s.id !== 'hero');
@@ -298,6 +371,7 @@ export default function useRailBall({ railRef, svgRef, nodesRef, ballRef, spinRe
         rnodes.appendChild(b);
         nodes.push([b, l]);
       });
+      }
     }
 
     /** Draw the trail up to `at`, touching only the segments that changed. */
