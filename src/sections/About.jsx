@@ -1,3 +1,23 @@
+import pradip from '../assets/team/pradip.webp';
+import pradumn from '../assets/team/pradumn.webp';
+
+const PEOPLE = [
+  {
+    name: 'Pradip Chetry',
+    role: 'Founder & Managing Director',
+    photo: pradip,
+    focus: '50% 50%',
+    bio: 'Pradip is a technology entrepreneur and institutional strategist with 20+ years of experience across technology, enterprise growth, and government ecosystems. He works at the intersection of technology, policy, and institutional transformation, with a focus on building intelligent, future-ready education systems. As founder, he leads Workneev’s strategy, growth, partnerships, and vision for Kovaan OS.',
+  },
+  {
+    name: 'Pradumn Yadav',
+    role: 'Co-Founder & Director',
+    photo: pradumn,
+    focus: '50% 30%',
+    bio: 'Pradumn leads operations, marketing and execution at Workneev. Focused on making education more practical and future-ready, he works across product and institutional initiatives to translate the Workneev vision into scalable solutions. He plays a key role in taking Kovaan OS from product vision to institutional deployment.',
+  },
+];
+
 export default function About() {
   return (
     <section className="band" id="about">
@@ -27,18 +47,22 @@ export default function About() {
         </div>
 
         <div className="people" id="people">
-          <div className="person lift" data-reveal>
-            <b>Pradip Chetry</b>
-            <span className="role">Founder &amp; Chief Executive</span>
-            <p>
-              Education strategist and institution builder, working across institutional transformation,
-              education policy and technology in Indian higher education.
-            </p>
-          </div>
-          <div className="person lift" data-reveal style={{ '--d': '.08s' }}>
-            <b>Pradumn Yadav</b>
-            <span className="role">Co-founder</span>
-          </div>
+          {PEOPLE.map((p, i) => (
+            <div className="person lift" key={p.name} data-reveal style={{ '--d': `${i * 0.08}s` }}>
+              <img
+                className="person-photo"
+                src={p.photo}
+                alt={p.name}
+                width="96"
+                height="96"
+                loading="lazy"
+                style={{ objectPosition: p.focus }}
+              />
+              <b>{p.name}</b>
+              <span className="role">{p.role}</span>
+              <p>{p.bio}</p>
+            </div>
+          ))}
           <div className="person council" data-reveal style={{ '--d': '.16s' }}>
             <b>The Workneev Expert Council</b>
             <p>
