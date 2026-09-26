@@ -732,6 +732,10 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .story2 .em{color:var(--heading);font-style:italic}
 .people{margin-top:56px;display:grid;gap:20px;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr))}
 .person{border-radius:var(--r-lg);padding:28px;display:flex;flex-direction:column}
+/* founder avatar: a glass ring that follows whichever theme the section is in */
+.person-photo{width:96px;height:96px;border-radius:50%;object-fit:cover;display:block;margin-bottom:18px;
+  background:var(--sunken);border:1px solid var(--glass-bd);
+  box-shadow:0 0 0 1px var(--border),inset 0 1px 0 rgba(255,255,255,.5),0 8px 20px rgba(80,50,140,.14)}
 .person b{font-size:22px}
 .person .role{margin-top:4px;font-size:12.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--accent)}
 .person p{margin-top:12px;font-size:15px;line-height:1.6;color:var(--muted)}
