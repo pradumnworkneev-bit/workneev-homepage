@@ -6,8 +6,7 @@ const PEOPLE = [
     name: 'Pradip Chetry',
     role: 'Founder & Managing Director',
     photo: pradip,
-    // a wide half-body shot: hold the crop high so the face sits in the circle
-    focus: '50% 22%',
+    focus: '50% 50%',
     bio: 'Pradip is a technology entrepreneur and institutional strategist with 20+ years of experience across technology, enterprise growth, and government ecosystems. He works at the intersection of technology, policy, and institutional transformation, with a focus on building intelligent, future-ready education systems. As founder, he leads Workneev’s strategy, growth, partnerships, and vision for Kovaan OS.',
   },
   {
