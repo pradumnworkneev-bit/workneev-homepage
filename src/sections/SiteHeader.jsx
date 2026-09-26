@@ -1,17 +1,90 @@
+import { useEffect, useState } from 'react';
+import Logo from '../components/Logo.jsx';
+import useSectionTheme from '../hooks/useSectionTheme.js';
+import { subscribeScroll } from '../lib/scroll.js';
+
+const NAV = [
+  ['#method', 'How we work'],
+  ['#diagnostic', 'The Diagnostic'],
+  ['#dimensions', 'What we assess'],
+  ['#engage', 'Engagements'],
+  ['#kovaan', 'Kovaan OS', 'Product'],
+  ['#about', 'About'],
+];
+
 export default function SiteHeader() {
+  const [scrolled, setScrolled] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState('');
+  const theme = useSectionTheme();
+
+  useEffect(() => subscribeScroll({ frame: (y) => setScrolled(y > 8) }), []);
+
+  // which section the reader is in, for the underline in the nav
+  useEffect(() => {
+    if (typeof IntersectionObserver === 'undefined') return undefined;
+    const io = new IntersectionObserver(
+      (es) => es.forEach((e) => e.isIntersecting && setActive(`#${e.target.id}`)),
+      { rootMargin: '-45% 0px -50% 0px' },
+    );
+    ['method', 'diagnostic', 'dimensions', 'engage', 'kovaan', 'about'].forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) io.observe(el);
+    });
+    return () => io.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && open) setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
-    <header style={{ position: "sticky", top: "0", zIndex: "50", background: "rgba(233,239,250,.9)", backdropFilter: "blur(14px)", borderBottom: "1px solid rgba(15,23,42,.12)" }}>
-      <div style={{ maxWidth: "1360px", margin: "0 auto", padding: "0 clamp(20px,3vw,48px)", height: "64px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: "32px" }}>
-        <a href="#top" style={{ display: "flex", alignItems: "baseline", gap: "10px", color: "#0f1420" }}><span style={{ font: "700 21px/1 'Plus Jakarta Sans',sans-serif", letterSpacing: ".01em" }}>Workneev</span><span style={{ width: "5px", height: "5px", background: "#4f46e5", display: "block", borderRadius: "50%" }} /></a>
-        <nav style={{ display: "flex", alignItems: "center", gap: "clamp(14px,2vw,30px)", font: "600 11px/1 'JetBrains Mono',monospace", letterSpacing: ".14em", textTransform: "uppercase" }}>
-          <a href="#method" style={{ color: "#44506b" }}>How we work</a>
-          <a href="#diagnostic" style={{ color: "#44506b" }}>The Diagnostic</a>
-          <a href="#dimensions" style={{ color: "#44506b" }}>What we assess</a>
-          <a href="#engage" style={{ color: "#44506b" }}>Engagements</a>
-          <a href="#about" style={{ color: "#44506b" }}>About</a>
+    <header className={`site-header theme-${theme}${scrolled ? ' scrolled' : ''}`} id="header">
+      <div className="wrap bar">
+        <a className="logo-lk" href="#top" aria-label="Workneev, home">
+          <Logo size={30} />
+        </a>
+        <nav className="nav" aria-label="Primary">
+          {NAV.map(([href, label, pill]) => (
+            <a key={href} href={href} className={active === href ? 'active' : undefined}>
+              {label}
+              {pill && <span className="pill">{pill}</span>}
+            </a>
+          ))}
         </nav>
-        <a href="#contact" style={{ flex: "none", font: "600 11px/1 'JetBrains Mono',monospace", letterSpacing: ".12em", textTransform: "uppercase", color: "#ffffff", background: "#4f46e5", padding: "11px 18px" }}>Talk to us</a>
+        <a className="btn btn-primary header-cta" href="#contact">
+          Talk to us
+        </a>
+        <button
+          className="menu-btn"
+          id="menuBtn"
+          aria-expanded={open}
+          aria-controls="drawer"
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span>{open ? 'Close' : 'Menu'}</span>
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+            <path d={open ? 'M3 3l10 10M13 3L3 13' : 'M2 5h12M2 11h12'} />
+          </svg>
+        </button>
       </div>
+      <nav className="drawer" id="drawer" aria-label="Mobile" hidden={!open} onClick={() => setOpen(false)}>
+        <div className="wrap">
+          {NAV.map(([href, label, pill]) => (
+            <a key={href} className="dl" href={href}>
+              {label}
+              {pill && <span className="pill">{pill}</span>}
+            </a>
+          ))}
+          <a className="btn btn-primary" href="#contact">
+            Talk to us
+          </a>
+        </div>
+      </nav>
     </header>
   );
 }

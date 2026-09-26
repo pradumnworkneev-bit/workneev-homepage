@@ -1,118 +1,260 @@
-import CountUp from '../components/CountUp.jsx';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { RM, onVisible } from '../lib/motion.js';
+import { DIMS, FULL, MEDIAN, ROWS } from '../data/score.js';
+
+const R = 180;
+const pt = (i, v) => {
+  const a = ((-90 + i * 40) * Math.PI) / 180;
+  return [(Math.cos(a) * R * v) / 100, (Math.sin(a) * R * v) / 100];
+};
+const poly = (vals) => DIMS.map((d, i) => pt(i, vals(d, i)).join(',')).join(' ');
+
+function Radar({ showMedian }) {
+  const svgRef = useRef(null);
+  const tipRef = useRef(null);
+  const [on, setOn] = useState(-1);
+
+  const show = (i) => {
+    setOn(i);
+    const svg = svgRef.current;
+    const tip = tipRef.current;
+    if (!svg || !tip) return;
+    const d = DIMS[i];
+    const v = pt(i, d[1]);
+    const s = svg.getBoundingClientRect().width / 520;
+    tip.style.left = `${(v[0] + 260) * s}px`;
+    tip.style.top = `${(v[1] + 240) * s}px`;
+  };
+
+  return (
+    <div className="radar-wrap">
+      <svg
+        ref={svgRef}
+        className={`radar${showMedian ? '' : ' no-median'}`}
+        viewBox="-260 -240 520 480"
+        role="img"
+        aria-label="Illustrative radar of nine dimensions. Constraints: Strategy, Industry, Autonomy."
+      >
+        <g>
+          {[25, 50, 75, 100].map((p) => (
+            <circle key={p} className="ring" r={(R * p) / 100} />
+          ))}
+          <polygon className="median" points={poly(() => MEDIAN)} />
+          <polygon className="shape" points={poly((d) => d[1])} />
+          {DIMS.map((d, i) => {
+            const e = pt(i, 100);
+            const l = pt(i, 118);
+            const v = pt(i, d[1]);
+            return (
+              <g
+                key={d[0]}
+                className={`axis${on === i ? ' on' : ''}`}
+                tabIndex={0}
+                aria-label={`${FULL[i]}, ${d[1]}${d[2] ? ', constraint' : ''}`}
+                onMouseEnter={() => show(i)}
+                onMouseLeave={() => setOn(-1)}
+                onFocus={() => show(i)}
+                onBlur={() => setOn(-1)}
+              >
+                <line className="spoke" x1="0" y1="0" x2={e[0]} y2={e[1]} />
+                <text
+                  className="lbl"
+                  x={l[0]}
+                  y={l[1] + 4}
+                  textAnchor={Math.abs(l[0]) < 10 ? 'middle' : l[0] > 0 ? 'start' : 'end'}
+                >
+                  {d[0]}
+                </text>
+                <circle className={`v${d[2] ? ' c' : ''}`} cx={v[0]} cy={v[1]} r={d[2] ? 7 : 4.5} />
+                <circle className="hit" cx={v[0]} cy={v[1]} r="22" />
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+      <div className={`tip${on >= 0 ? ' on' : ''}`} ref={tipRef} role="status">
+        {on >= 0 && (
+          <>
+            <b>{FULL[on]}</b>
+            {`${DIMS[on][1]} / 100${DIMS[on][2] ? ' · constraint' : ` · peer median ${MEDIAN}`}`}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function TransformationScore() {
+  const [median, setMedian] = useState(true);
+  const [focus, setFocus] = useState(false);
+  const [sort, setSort] = useState('score');
+  const [grow, setGrow] = useState(true);
+  const [score, setScore] = useState(67); // counts up from 0 once the bars show
+  const barsRef = useRef(null);
+  const rowRefs = useRef(new Map());
+  const prevPos = useRef(new Map());
+
+  const rows = [...ROWS].sort((a, b) => (sort === 'score' ? b.s - a.s : a.o - b.o));
+
+  // grow the bars and count the headline number up, the first time they show
+  useEffect(() => {
+    const el = barsRef.current;
+    if (!el) return undefined;
+    if (RM || el.getBoundingClientRect().top < window.innerHeight) {
+      setGrow(false);
+      setScore(67);
+      return undefined;
+    }
+    let raf = 0;
+    const stop = onVisible(
+      el,
+      () => {
+        setGrow(false);
+        setScore(0);
+        const start = performance.now();
+        const step = (n) => {
+          const p = Math.min((n - start) / 1400, 1);
+          setScore(Math.round(67 * (1 - Math.pow(1 - p, 3))));
+          if (p < 1) raf = requestAnimationFrame(step);
+        };
+        raf = requestAnimationFrame(step);
+      },
+      0.2,
+    );
+    return () => {
+      stop();
+      cancelAnimationFrame(raf);
+    };
+  }, []);
+
+  // FLIP: slide each bar from where it was to where the new order puts it
+  useLayoutEffect(() => {
+    if (RM) return;
+    rowRefs.current.forEach((el, key) => {
+      const was = prevPos.current.get(key);
+      const now = el.getBoundingClientRect().top;
+      if (was != null && was !== now) {
+        el.style.transition = 'none';
+        el.style.transform = `translateY(${was - now}px)`;
+        void el.getBoundingClientRect();
+        el.style.transition = '';
+        el.style.transform = '';
+      }
+      prevPos.current.set(key, now);
+    });
+  }, [sort]);
+
+  const remember = () => {
+    rowRefs.current.forEach((el, key) => prevPos.current.set(key, el.getBoundingClientRect().top));
+  };
+
   return (
-    <section style={{ background: "#f1f1f4", padding: "clamp(70px,8vw,120px) 0", borderTop: "1px solid #e8e8ee", borderBottom: "1px solid #e8e8ee" }}>
-      <div style={{ maxWidth: "1360px", margin: "0 auto", padding: "0 clamp(20px,3vw,48px)" }}>
-        <div style={{ display: "flex", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-end", gap: "20px" }}>
+    <section className="band" id="score">
+      <div className="wrap">
+        <div className="score-head" data-reveal>
           <div>
-            <div style={{ font: "600 11px/1 'JetBrains Mono',monospace", letterSpacing: ".16em", textTransform: "uppercase", color: "#4a5570" }}>The instrument</div>
-            <h2 style={{ margin: "16px 0 0", font: "700 clamp(26px,3vw,42px)/1.08 'Plus Jakarta Sans',sans-serif", letterSpacing: "-.022em", color: "#101014" }}>Institutional Transformation Score</h2>
+            <div className="eyebrow">The instrument</div>
+            <h2 className="h2">Institutional Transformation Score</h2>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ font: "700 clamp(52px,7vw,104px)/.88 'Plus Jakarta Sans',sans-serif", letterSpacing: "-.04em", color: "#101014" }}><CountUp to={67} /><span style={{ fontSize: ".32em", color: "#4a5570" }}>/100</span></div>
-            <div style={{ marginTop: "8px", font: "600 10px/1.5 'JetBrains Mono',monospace", letterSpacing: ".12em", textTransform: "uppercase", color: "#4a5570" }}>Illustrative. Not an actual institution’s result.</div>
+          <div style={{ textAlign: 'right' }}>
+            <div className="big">
+              <span>{score}</span>
+              <small>/100</small>
+            </div>
+            <div className="hint" style={{ marginTop: 8 }}>
+              Illustrative. Not an actual institution’s result.
+            </div>
           </div>
         </div>
-        <p style={{ margin: "22px 0 0", maxWidth: "60ch", font: "400 16px/1.62 'Plus Jakarta Sans',sans-serif", color: "#6b6b78" }}>Composite of nine dimensions, weighted to the ambition the institution has stated. The vertical rule on each bar is the peer median, 61.</p>
-        <div style={{ marginTop: "clamp(48px,4vw,60px)", position: "relative" }}>
-          <div data-bar="83" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr)", gap: "0", padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Quality &amp; Institutional Excellence</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }}>
-                  <div style={{ position: "absolute", left: "0", bottom: "100%", marginBottom: "8px", transform: "translateX(-50%)", whiteSpace: "nowrap", font: "600 10px/1 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#0f6b32" }}>PEER MEDIAN 61</div>
+        <p className="lede" style={{ marginTop: 20 }} data-reveal>
+          Composite of nine dimensions, weighted to the ambition the institution has stated. The vertical rule
+          on each bar is the peer median, 61.
+        </p>
+
+        <div className="score-grid">
+          <figure className="instrument" data-reveal>
+            <div className="inst-top">
+              <b>The instrument — nine dimensions</b>
+              <button className="toggle" aria-pressed={median} onClick={() => setMedian((m) => !m)}>
+                <span className="sw" aria-hidden="true" />
+                Peer median
+              </button>
+            </div>
+            <Radar showMedian={median} />
+            <figcaption className="legend">
+              <span>
+                <i className="dot" />
+                Constraints
+              </span>
+              <span>
+                <i className="dash" />
+                Peer median
+              </span>
+              <span>
+                <i className="ln" />
+                Illustrative
+              </span>
+            </figcaption>
+          </figure>
+
+          <div className="card score-card" data-reveal>
+            <div className="score-tools">
+              <div className="seg-ctl" role="group" aria-label="Order the bars">
+                {[
+                  ['score', 'By score'],
+                  ['order', 'By order of work'],
+                ].map(([k, label]) => (
+                  <button
+                    key={k}
+                    aria-pressed={sort === k}
+                    onClick={() => {
+                      remember();
+                      setSort(k);
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <button className="toggle" aria-pressed={focus} onClick={() => setFocus((f) => !f)}>
+                <span className="sw" aria-hidden="true" />
+                Show constraints only
+              </button>
+            </div>
+
+            <div className="median-lbl" style={{ marginTop: 18 }}>
+              <span>Peer median {MEDIAN}</span>
+            </div>
+
+            <div className={`bars${grow ? ' grow' : ''}${focus ? ' dim' : ''}`} ref={barsRef}>
+              {rows.map((r, i) => (
+                <div
+                  className={`brow${r.c ? ' c' : ''}`}
+                  key={r.label}
+                  ref={(el) => {
+                    if (el) rowRefs.current.set(r.label, el);
+                    else rowRefs.current.delete(r.label);
+                  }}
+                >
+                  <span className="lbl">
+                    {r.label}
+                    {r.ord && <span className="tag violet ord">{r.ord}</span>}
+                  </span>
+                  <div className="trk">
+                    <i style={{ '--v': `${r.s}%`, '--bd': `${i * 0.06}s` }} />
+                  </div>
+                  <span className="val">{r.s}</span>
                 </div>
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "83%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>83</div>
+              ))}
             </div>
-          </div>
-          <div data-bar="79" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Academic &amp; Curriculum Architecture</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "79%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .05s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>79</div>
-            </div>
-          </div>
-          <div data-bar="73" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Faculty &amp; Academic Capability</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "73%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .1s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>73</div>
-            </div>
-          </div>
-          <div data-bar="72" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Digital, Data &amp; Institutional Technology</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "72%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .15s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>72</div>
-            </div>
-          </div>
-          <div data-bar="68" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Student Success &amp; Employability</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "68%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .2s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>68</div>
-            </div>
-          </div>
-          <div data-bar="66" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#33333d" }}>Research, Innovation &amp; Entrepreneurship</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "66%", background: "#46536f", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .25s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "400 13px/1 'JetBrains Mono',monospace", color: "#33333d" }}>66</div>
-            </div>
-          </div>
-          <div data-bar="58" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#101014" }}>Strategy, Transformation &amp; Governance</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "58%", background: "#4f46e5", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .3s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-                <div style={{ position: "absolute", left: "calc(58% + 12px)", top: "50%", transform: "translateY(-50%)", whiteSpace: "nowrap", font: "600 10px/1 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#4f46e5", animation: "wkFade .6s .9s ease both", animationTimeline: "view()", animationRange: "entry 4% cover 26%" }}>THIRD</div>
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "500 13px/1 'JetBrains Mono',monospace", color: "#4f46e5" }}>58</div>
-            </div>
-          </div>
-          <div data-bar="52" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#101014" }}>Industry &amp; Talent Ecosystem</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "52%", background: "#4f46e5", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .35s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-                <div style={{ position: "absolute", left: "calc(52% + 12px)", top: "50%", transform: "translateY(-50%)", whiteSpace: "nowrap", font: "600 10px/1 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#4f46e5", animation: "wkFade .6s .95s ease both", animationTimeline: "view()", animationRange: "entry 4% cover 26%" }}>SECOND</div>
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "500 13px/1 'JetBrains Mono',monospace", color: "#4f46e5" }}>52</div>
-            </div>
-          </div>
-          <div data-bar="47" style={{ padding: "9px 0", borderTop: "1px solid #e8e8ee", borderBottom: "1px solid #e8e8ee" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "16px" }}>
-              <div style={{ flex: "none", width: "clamp(150px,17vw,280px)", font: "400 clamp(12px,.95vw,14px)/1.3 'Plus Jakarta Sans',sans-serif", color: "#101014" }}>Autonomy, Growth &amp; University Readiness</div>
-              <div style={{ flex: "1", position: "relative", height: "22px", background: "#e6e6ec" }}>
-                <div style={{ position: "absolute", left: "61%", top: "-4px", bottom: "-4px", width: "1px", background: "#16a34a", zIndex: "3" }} />
-                <div style={{ position: "absolute", inset: "0 auto 0 0", width: "47%", background: "#4f46e5", transformOrigin: "0 50%", animation: "wkGrowX 1.1s .4s cubic-bezier(.16,1,.3,1) both", animationTimeline: "view()", animationRange: "entry 4% cover 22%" }} />
-                <div style={{ position: "absolute", left: "calc(47% + 12px)", top: "50%", transform: "translateY(-50%)", whiteSpace: "nowrap", font: "600 10px/1 'JetBrains Mono',monospace", letterSpacing: ".1em", color: "#4f46e5", animation: "wkFade .6s 1s ease both", animationTimeline: "view()", animationRange: "entry 4% cover 26%" }}>FIRST</div>
-              </div>
-              <div style={{ flex: "none", width: "52px", textAlign: "right", font: "500 13px/1 'JetBrains Mono',monospace", color: "#4f46e5" }}>47</div>
-            </div>
+
+            <p className="score-note">
+              Marked in <b>violet</b>: the two or three constraints this institution would be told to address
+              first, and in what order. Everything else is capable of waiting. The ordering, not the list, is
+              the deliverable.
+            </p>
           </div>
         </div>
-        <p style={{ margin: "22px 0 0", maxWidth: "66ch", font: "400 15px/1.62 'Plus Jakarta Sans',sans-serif", color: "#6b6b78" }}>Marked in <span style={{ color: "#4f46e5" }}>indigo</span>: the two or three constraints this institution would be told to address first, and in what order. Everything else is capable of waiting. The ordering, not the list, is the deliverable.</p>
       </div>
     </section>
   );
