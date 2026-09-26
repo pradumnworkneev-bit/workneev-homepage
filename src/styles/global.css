@@ -39,8 +39,8 @@
   --glass-bg:linear-gradient(180deg,rgba(255,255,255,.075),rgba(255,255,255,.025));
   --glass-bd:rgba(255,255,255,.10);
   --glass-solid:#15111f;
-  --glass-sh:inset 0 1px 0 rgba(255,255,255,.12),0 18px 40px rgba(0,0,0,.30);
-  --glass-sh-up:inset 0 1px 0 rgba(255,255,255,.14),0 26px 40px rgba(0,0,0,.5),0 0 0 1px rgba(168,139,255,.18);
+  --glass-sh:inset 0 1px 0 rgba(255,255,255,.12),0 14px 30px rgba(0,0,0,.34);
+  --glass-sh-up:inset 0 1px 0 rgba(255,255,255,.14),0 18px 30px rgba(0,0,0,.5);
   --sheen:linear-gradient(180deg,rgba(255,255,255,.07),rgba(255,255,255,0));
   --inset-bg:rgba(255,255,255,.04);
 
@@ -84,8 +84,8 @@
   --glass-bg:linear-gradient(180deg,rgba(255,255,255,.9),rgba(255,255,255,.62));
   --glass-bd:rgba(255,255,255,.95);
   --glass-solid:#fcfbff;
-  --glass-sh:inset 0 1px 0 #fff,0 18px 40px rgba(80,50,140,.10),0 0 0 1px rgba(90,46,166,.07);
-  --glass-sh-up:inset 0 1px 0 #fff,0 26px 40px rgba(80,50,140,.18),0 0 0 1px rgba(106,59,196,.22);
+  --glass-sh:inset 0 1px 0 #fff,0 14px 30px rgba(80,50,140,.13);
+  --glass-sh-up:inset 0 1px 0 #fff,0 18px 30px rgba(80,50,140,.20);
   --sheen:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,0));
   --inset-bg:rgba(255,255,255,.66);
 
@@ -138,12 +138,16 @@ img{max-width:100%}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* the page base: midnight, with the dust grid over it */
+/* the page base and its dust grid are painted once onto their own layer, so
+   scrolling composites them instead of repainting two full screens a frame */
 body::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  will-change:transform;transform:translateZ(0);backface-visibility:hidden;
   background:radial-gradient(40% 35% at 90% 5%,rgba(136,92,240,.20),transparent 70%),
              radial-gradient(35% 30% at 0% 45%,rgba(90,110,230,.12),transparent 70%),
              radial-gradient(40% 35% at 85% 95%,rgba(220,90,190,.12),transparent 70%),
              linear-gradient(180deg,#110e19,#0b0911)}
 body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.35;
+  will-change:transform;transform:translateZ(0);backface-visibility:hidden;
   background-image:radial-gradient(rgba(255,255,255,.08) 1px,transparent 1.2px);background-size:38px 38px}
 ::selection{background:#8457e6;color:#fff}
 
@@ -152,19 +156,26 @@ body::after{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;opa
    base show through; light zones paint glossy pearl and fade out over
    --join at each end, so a light meeting a dark has no hard line.          */
 .zone{position:relative;isolation:isolate}
-.zone>*{position:relative;z-index:1}
-.zone.theme-light::before,.zone.theme-light::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;
-  -webkit-mask-image:linear-gradient(180deg,transparent 0,#000 var(--join),#000 calc(100% - var(--join)),transparent 100%);
-          mask-image:linear-gradient(180deg,transparent 0,#000 var(--join),#000 calc(100% - var(--join)),transparent 100%)}
-.zone.theme-light::before{
+.zone>*:not(.zone-layer){position:relative;z-index:1}
+/* The pearl background, as plain layers. It used to be one mask-image over a
+   zone thousands of pixels tall, and a masked surface that size was the most
+   expensive thing on the page to rasterise while scrolling. The join now
+   blends by painting the page's own base colour back over the light zone for
+   --join pixels at each end, which costs two small gradient strips. */
+.zone-layer{position:absolute;left:0;right:0;z-index:0;pointer-events:none}
+.zone-bg{top:0;bottom:0;
   background:radial-gradient(48% 38% at 100% 0%,rgba(217,201,255,.40),transparent 70%),
              radial-gradient(45% 35% at 0% 100%,rgba(255,214,236,.30),transparent 70%),
              radial-gradient(40% 45% at 0% 35%,rgba(214,230,255,.25),transparent 70%),
              #f6f3fb}
-/* the faint diagonal light streak */
-.zone.theme-light::after{
-  background-image:linear-gradient(-13deg,transparent calc(50% - 1px),rgba(255,255,255,.9) calc(50% - .4px),rgba(154,115,245,.25) calc(50% + .4px),transparent calc(50% + 1px));
-  opacity:.7}
+.zone-fade{height:var(--join)}
+.zone-fade.t{top:0;background:linear-gradient(180deg,#0f0c17 0%,rgba(15,12,23,0) 100%)}
+.zone-fade.b{bottom:0;background:linear-gradient(0deg,#0d0a14 0%,rgba(13,10,20,0) 100%)}
+/* the faint diagonal light streak: a 2px bar that is rotated, rather than a
+   steep gradient stretched the height of the zone */
+.zone-streak{top:50%;left:0;right:0;height:2px;opacity:.7;
+  transform:rotate(-13deg);transform-origin:50% 50%;
+  background:linear-gradient(90deg,transparent 0,rgba(255,255,255,.9) 38%,rgba(154,115,245,.25) 62%,transparent 100%)}
 
 /* ============================================================== type ==== */
 .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
@@ -226,7 +237,8 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .deliv details,.dim .pts div,.functions div,.kpi,.mods div,.promise,.paid,.form,.dock,.left-with .panel,
 .honest,.kept,.astep,.portal .side,.instrument,.sys-fig{
   background:var(--glass-bg);border:1px solid var(--glass-bd);box-shadow:var(--glass-sh)}
-.card,.journey,.pillar,.out-card,.sixc,.person,.depth,.promise,.q{position:relative;overflow:hidden}
+.card,.journey,.pillar,.out-card,.sixc,.person,.depth,.promise,.q{position:relative;overflow:hidden;
+  contain:layout paint}
 /* the top sheen paints from ::before, so it sits under the card's own content */
 .card::before,.journey::before,.pillar::before,.out-card::before,.person::before,.depth::before,.promise::before,.q::before{
   content:"";position:absolute;left:0;right:0;top:0;height:42%;pointer-events:none;border-radius:inherit;background:var(--sheen);z-index:0}
@@ -331,7 +343,7 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
   pointer-events:none;will-change:transform,opacity;opacity:0;
   background:radial-gradient(circle at 32% 28%,#ffffff 0%,#efe6ff 6%,#c3a8ff 20%,#9265f2 45%,#6534c0 70%,#3a1a7a 100%);
   box-shadow:inset -10px -14px 26px rgba(30,8,70,.55),inset 8px 10px 20px rgba(255,255,255,.3),
-             0 0 40px rgba(150,110,255,.55),0 0 40px rgba(150,110,255,.25)}
+             0 0 30px rgba(150,110,255,.6)}
 .ball .shine{position:absolute;left:18%;top:12%;width:34%;height:22%;border-radius:50%;
   background:radial-gradient(ellipse at center,rgba(255,255,255,.95),rgba(255,255,255,0) 70%);transform:rotate(-24deg)}
 .ball .rim{position:absolute;inset:0;border-radius:50%;
@@ -344,11 +356,13 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .stack-item{position:sticky;top:calc(var(--header-h) + 24px + var(--i) * 14px);min-height:100vh}
 .stack-item:last-child{min-height:auto;padding-bottom:clamp(40px,8vw,120px)}
 /* every card in a stack is opaque: one has to hide the one it covers */
-.stack-item>*{max-width:760px;margin-inline:auto;border-radius:var(--r-lg);
-  background:var(--glass-bg),var(--glass-solid);transform-origin:50% 0;will-change:transform}
-/* the covered card dims through an overlay's opacity, never a filter */
-.stack-item>*::after{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:inherit;
-  background:#0b0911;opacity:var(--dim,0)}
+.stack-card{position:relative;max-width:760px;margin-inline:auto;border-radius:var(--r-lg);
+  transform-origin:50% 0;will-change:transform;contain:layout paint}
+.stack-card>*{background:var(--glass-bg),var(--glass-solid)}
+/* the covered card dims through an overlay's opacity on its own layer:
+   no filter, no inherited custom property, nothing to repaint */
+.stack-dim{position:absolute;inset:0;z-index:2;pointer-events:none;border-radius:var(--r-lg);
+  background:#0b0911;opacity:0;will-change:opacity}
 .journey{padding:clamp(24px,3vw,36px);display:flex;flex-direction:column;gap:16px}
 .journey h3{font-size:clamp(24px,2.4vw,32px);line-height:1.15;font-weight:700;letter-spacing:-.015em}
 .journey .quote{font-size:17px;line-height:1.55;font-style:italic}
@@ -950,5 +964,6 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
   .arch-spacer{display:none}
   .arch-sticky{position:static}
   .journey,.depth{transform:none!important}
-  .stack-item>*::after{display:none}
+  .stack-card{transform:none!important}
+  .stack-dim{display:none}
 }
