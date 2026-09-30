@@ -226,7 +226,7 @@ export default function TransformationScore() {
               <span>Peer median {MEDIAN}</span>
             </div>
 
-            <div className={`bars${grow ? ' grow' : ''}${focus ? ' dim' : ''}`} ref={barsRef}>
+            <div className={`bars${grow ? ' grow' : ''}${focus ? ' focus' : ''}`} ref={barsRef}>
               {rows.map((r, i) => (
                 <div
                   className={`brow${r.c ? ' c' : ''}`}

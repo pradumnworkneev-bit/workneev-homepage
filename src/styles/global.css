@@ -439,13 +439,14 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .big small{font-size:.24em;font-weight:600;color:var(--muted);letter-spacing:0;margin-left:4px}
 .score-grid{margin-top:40px;display:grid;gap:24px;align-items:start}
 @media (min-width:1100px){.score-grid{grid-template-columns:.85fr 1.15fr}}
-.score-card{border-radius:var(--r-lg);padding:clamp(20px,2.6vw,36px)}
+/* --lbl is the label column; the median label above the bars is offset by it too */
+.score-card{border-radius:var(--r-lg);padding:clamp(20px,2.6vw,36px);--lbl:clamp(190px,46%,280px)}
 .score-tools{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap}
-.bars{margin-top:24px;display:grid;gap:14px}
-.brow{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:6px 14px;align-items:center;
+.bars{margin-top:24px;display:grid;gap:18px}
+.brow{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:8px 14px;align-items:center;
   transition:transform .6s var(--ease),opacity .3s}
-@media (min-width:700px){.brow{grid-template-columns:280px minmax(0,1fr) 44px}}
-.brow .lbl{font-size:14px;line-height:1.3;color:var(--muted);display:flex;flex-wrap:wrap;gap:4px 8px;align-items:center}
+@media (min-width:700px){.brow{grid-template-columns:var(--lbl) minmax(0,1fr) 44px}}
+.brow .lbl{font-size:14px;line-height:1.4;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 8px;align-items:center}
 .brow.c .lbl{color:var(--heading);font-weight:600}
 .brow .ord{padding:2px 8px;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
 .brow .trk{position:relative;height:14px;background:var(--track-bg);box-shadow:var(--track-sh);border-radius:999px;
@@ -459,9 +460,10 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .brow .val{font-size:15px;font-weight:700;text-align:right;font-variant-numeric:tabular-nums}
 .brow.c .val{color:var(--accent)}
 .bars.grow .trk i{transform:scaleX(0)}
-.bars.dim .brow:not(.c){opacity:.4}
+/* not `.dim`: that is a Dimensions row, and its grid would land on the bars */
+.bars.focus .brow:not(.c){opacity:.4}
 .median-lbl{position:relative;height:18px}
-@media (min-width:700px){.median-lbl{margin-left:294px;margin-right:58px}}
+@media (min-width:700px){.median-lbl{margin-left:calc(var(--lbl) + 14px);margin-right:58px}}
 .median-lbl span{position:absolute;left:61%;transform:translateX(-50%);font-size:11px;font-weight:600;
   letter-spacing:.1em;color:var(--muted);white-space:nowrap}
 .score-note{margin-top:22px;padding-top:16px;border-top:1px solid var(--border);font-size:15px;line-height:1.6;
@@ -524,6 +526,7 @@ h1,h2,h3,.big,.stat b,.q b,.kpi b,.mission p,.person b,.depth h3,.journey h3,.fa
 .phases{margin-top:14px;display:grid;gap:10px;grid-template-columns:1fr}
 @media (min-width:900px){.phases{grid-template-columns:2fr 5fr 4fr 3fr}}
 .phase{text-align:left;border-radius:var(--r-lg);padding:16px 18px;cursor:pointer;
+  display:flex;flex-direction:column;justify-content:flex-start;
   transition:border-color .25s,box-shadow .25s,transform .25s var(--ease)}
 .phase i{display:block;height:6px;border-radius:3px;margin-bottom:12px}
 .phase small{display:block;font-size:12px;font-weight:600;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
